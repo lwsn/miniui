@@ -1,0 +1,11 @@
+package-as: miniui
+
+enable-nolib-creation: no
+
+externals:
+  embeds/oUF:
+    url: https://github.com/oUF-wow/oUF.git
+    tag: latest
+
+tools-used:
+  - ouf

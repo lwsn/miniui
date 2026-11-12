@@ -1,0 +1,3 @@
+local _, ns = ...
+local oUF = ns.oUF
+assert(oUF, 'miniui: embedded oUF failed to load')
