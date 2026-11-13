@@ -29,7 +29,6 @@ end
 
 local function AddGroup(container, key, filter, options)
 	options.size = SIZE
-	options.tooltipAnchor = 'ANCHOR_BOTTOMLEFT'
 	options.layout = {
 		elementSpacing = SPACING,
 		lineSpacing = SPACING,

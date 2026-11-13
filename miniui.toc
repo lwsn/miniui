@@ -5,6 +5,7 @@
 ## AllowLoadGameType: standard, camelot
 ## OptionalDeps: Clique
 ## X-oUF: miniui_oUF
+## SavedVariablesPerCharacter: miniuiXPDB, miniuiBasiliskDB
 
 embeds\oUF\oUF.xml
 
@@ -24,7 +25,9 @@ bags\bags.lua
 unitframes\unitframes.xml
 auras\player.lua
 info\fps.lua
+info\basilisks.lua
 utility\automation.lua
+utility\tooltips.lua
 utility\fader.lua
 
 dev\fontsampler.lua

@@ -1,12 +1,12 @@
 local _, ns = ...
 
--- Combo points as a row of square dots, centred just above action bar 1.
+-- Combo points as a row of wide segments spanning action bar 1, just above it.
 -- One dot per possible point, lit up to the current count; hidden while you
 -- have none.
 
-local SIZE = 10 -- UI units per dot, border included
-local GAP = 2 -- physical pixels between dots
-local OFFSET = 3 -- physical pixels between the dots and the bar
+local SIZE = 10 -- UI units tall, border included; width fills the bar
+local GAP = 1 -- physical pixels between dots
+local OFFSET = 1 -- physical pixels between the dots and the bar
 local MAX = 10
 
 local COLOR = { 0.75, 0.35, 0.15 } -- muted orange-red, clear of energy's yellow
@@ -29,23 +29,30 @@ end
 
 local shown = 0 -- number of dots laid out
 
--- Lays out `count` dots in whole pixels, centred on the bar.
+-- Lays out `count` dots in whole pixels, spanning the bar's width exactly:
+-- dot width is rounded down and the leftover pixels go one each to the
+-- first dots, like the pet bar.
 local function Layout(count)
 	shown = count
 	local px = ns.Pixels(holder, 1)
-	local size = math.max(3, math.floor(SIZE / px + 0.5))
-	local width = count * size + (count - 1) * GAP
+	local height = math.max(3, math.floor(SIZE / px + 0.5))
 	local barWidth = math.floor(ns.actionbar:GetWidth() / px + 0.5)
+	local inner = barWidth - (count - 1) * GAP
+	local width = math.floor(inner / count)
+	local extra = inner - width * count
 
-	holder:SetSize(width * px, size * px)
+	holder:SetSize(barWidth * px, height * px)
 	holder:ClearAllPoints()
-	holder:SetPoint('BOTTOMLEFT', ns.actionbar, 'TOPLEFT', math.floor((barWidth - width) / 2) * px, OFFSET * px)
+	holder:SetPoint('BOTTOMLEFT', ns.actionbar, 'TOPLEFT', 0, OFFSET * px)
 
+	local x = 0
 	for i, dot in ipairs(dots) do
+		local w = width + (i <= extra and 1 or 0)
 		dot:SetShown(i <= count)
-		dot:SetSize(size * px, size * px)
+		dot:SetSize(w * px, height * px)
 		dot:ClearAllPoints()
-		dot:SetPoint('TOPLEFT', holder, 'TOPLEFT', (i - 1) * (size + GAP) * px, 0)
+		dot:SetPoint('TOPLEFT', holder, 'TOPLEFT', x * px, 0)
+		x = x + w + GAP
 		dot.fill:ClearAllPoints()
 		dot.fill:SetPoint('TOPLEFT', px, -px)
 		dot.fill:SetPoint('BOTTOMRIGHT', -px, px)

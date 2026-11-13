@@ -38,21 +38,40 @@ end
 
 -- Junk ----------------------------------------------------------------------------
 
+local GetItemInfo = C_Item and C_Item.GetItemInfo or GetItemInfo
+local SellAllJunkItems = C_MerchantFrame and C_MerchantFrame.SellAllJunkItems
+
+-- Tracked from the merchant events rather than MerchantFrame:IsShown(): our
+-- MERCHANT_SHOW handler can run before Blizzard's shows the frame, and the
+-- gamepad UI may not use MerchantFrame at all.
+local merchantOpen = false
+
 local selling, earned, tried
+
+-- Vendor price of a stack; 0 when the item isn't cached yet (it still sells).
+local function StackValue(link, count)
+	local price = GetItemInfo and select(11, GetItemInfo(link)) or 0
+	return (price or 0) * (count or 1)
+end
+
+local function IsJunk(quality, noValue, link)
+	return quality == 0 and not noValue and link
+end
 
 local function StopSelling()
 	if selling then
 		selling:Cancel()
 		selling = nil
-		if earned > 0 then
-			Print('sold junk for ' .. Money(earned))
-		end
 	end
+	if earned and earned > 0 then
+		Print('sold junk for ' .. Money(earned))
+	end
+	earned = nil
 end
 
 -- Sells one grey item per tick until none are left or the merchant closes.
 local function SellNext()
-	if not MerchantFrame or not MerchantFrame:IsShown() then
+	if not merchantOpen then
 		StopSelling()
 		return
 	end
@@ -60,14 +79,11 @@ local function SellNext()
 		for slot = 1, GetContainerNumSlots(bag) or 0 do
 			local quality, noValue, link, count = ItemAt(bag, slot)
 			local key = bag * 1000 + slot
-			if quality == 0 and not noValue and link and not tried[key] then
-				local price = select(11, GetItemInfo(link)) or 0
-				if price > 0 then
-					tried[key] = true -- never retried, in case the merchant refuses it
-					earned = earned + price * (count or 1)
-					UseContainerItem(bag, slot)
-					return
-				end
+			if IsJunk(quality, noValue, link) and not tried[key] then
+				tried[key] = true -- never retried, in case the merchant refuses it
+				earned = earned + StackValue(link, count)
+				UseContainerItem(bag, slot)
+				return
 			end
 		end
 	end
@@ -77,6 +93,20 @@ end
 local function SellJunk()
 	StopSelling()
 	earned, tried = 0, {}
+	-- The client's own "sell all junk", where it exists: one call, no throttling.
+	if SellAllJunkItems then
+		for bag = 0, NUM_BAGS do
+			for slot = 1, GetContainerNumSlots(bag) or 0 do
+				local quality, noValue, link, count = ItemAt(bag, slot)
+				if IsJunk(quality, noValue, link) then
+					earned = earned + StackValue(link, count)
+				end
+			end
+		end
+		SellAllJunkItems()
+		StopSelling()
+		return
+	end
 	selling = C_Timer.NewTicker(SELL_INTERVAL, SellNext)
 	SellNext()
 end
@@ -188,11 +218,15 @@ local frame = CreateFrame('Frame')
 
 local EVENTS = {
 	MERCHANT_SHOW = function()
+		merchantOpen = true
 		if IsShiftKeyDown() then return end
 		Repair()
 		SellJunk()
 	end,
-	MERCHANT_CLOSED = StopSelling,
+	MERCHANT_CLOSED = function()
+		merchantOpen = false
+		StopSelling()
+	end,
 	LOOT_READY = FastLoot,
 	PLAYER_LOGIN = function()
 		SetCVar('cameraDistanceMaxZoomFactor', 2.6) -- the client's maximum

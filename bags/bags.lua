@@ -160,7 +160,7 @@ local function OnReceiveDrag(button)
 end
 
 local function OnEnter(button)
-	GameTooltip:SetOwner(button, 'ANCHOR_TOPLEFT')
+	GameTooltip:SetOwner(button, 'ANCHOR_CURSOR')
 	button.def.tooltip()
 	GameTooltip:Show()
 end

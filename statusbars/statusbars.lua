@@ -32,7 +32,7 @@ local bars = {} -- bottom to top
 -- Bar construction -------------------------------------------------------------
 
 local function OnEnter(frame)
-	GameTooltip:SetOwner(frame, 'ANCHOR_TOP')
+	GameTooltip:SetOwner(frame, 'ANCHOR_CURSOR')
 	frame:Tooltip()
 	GameTooltip:Show()
 end
@@ -134,19 +134,69 @@ local function IsMaxLevel()
 	return UnitLevel('player') >= (GetMaxPlayerLevel and GetMaxPlayerLevel() or MAX_PLAYER_LEVEL or 60)
 end
 
+-- XP per hour since the last /mreset. Played time and XP gained are saved per
+-- character on logout/reload, so /rl doesn't reset the rate and offline time
+-- doesn't count against it.
+local rate = { gained = 0, elapsed = 0, start = GetTime() }
+
+local function Elapsed()
+	return rate.elapsed + (GetTime() - rate.start)
+end
+
+-- Adds XP gained since the last call, carrying over level-ups.
+local function Track(cur, max, level)
+	if rate.level then
+		local delta
+		if level > rate.level then
+			delta = (rate.max - rate.cur) + cur
+		else
+			delta = cur - rate.cur
+		end
+		if delta > 0 then
+			rate.gained = rate.gained + delta
+		end
+	end
+	rate.cur, rate.max, rate.level = cur, max, level
+end
+
+local function XPPerHour()
+	local elapsed = Elapsed()
+	if rate.gained <= 0 or elapsed <= 0 then return end
+	return rate.gained / elapsed * 3600
+end
+
+-- 4500 => 1h 15m, 720 => 12m, 30 => <1m
+local function Duration(seconds)
+	local minutes = math.floor(seconds / 60)
+	if minutes >= 60 then
+		return ('%dh %dm'):format(math.floor(minutes / 60), minutes % 60)
+	elseif minutes >= 1 then
+		return minutes .. 'm'
+	end
+	return '<1m'
+end
+
 function experience:Refresh()
 	if IsMaxLevel() or (IsXPUserDisabled and IsXPUserDisabled()) then
 		return false
 	end
 	local cur, max = UnitXP('player'), math.max(1, UnitXPMax('player'))
 	local exhaustion = GetXPExhaustion() or 0
+	Track(cur, max, UnitLevel('player'))
 	SetProgress(self, cur, max)
 	self.extra:SetMinMaxValues(0, max)
 	self.extra:SetValue(math.min(max, cur + exhaustion))
 	-- Rested as a share of the whole level, in brackets after the progress.
+	local text = tostring(math.floor(cur / max * 100))
 	if exhaustion > 0 then
-		self.text:SetFormattedText('%d (%d)', math.floor(cur / max * 100), math.floor(exhaustion / max * 100))
+		text = ('%s (%d)'):format(text, math.floor(exhaustion / max * 100))
 	end
+	-- Time to level at the current XP/h, after the percentage.
+	local perHour = XPPerHour()
+	if perHour then
+		text = text .. '  ' .. Duration((max - cur) / perHour * 3600)
+	end
+	self.text:SetText(text)
 	self.left:SetText(Short(cur))
 	self.right:SetText(Short(max))
 	return true
@@ -278,8 +328,22 @@ local EVENTS = {
 
 local events = CreateFrame('Frame')
 events:RegisterEvent('PLAYER_LOGIN')
+events:RegisterEvent('PLAYER_LOGOUT')
 events:SetScript('OnEvent', function(_, event)
+	if event == 'PLAYER_LOGOUT' then
+		miniuiXPDB = { gained = rate.gained, elapsed = Elapsed() }
+		return
+	end
 	if event == 'PLAYER_LOGIN' then
+		if type(miniuiXPDB) == 'table' then
+			rate.gained = tonumber(miniuiXPDB.gained) or 0
+			rate.elapsed = tonumber(miniuiXPDB.elapsed) or 0
+		end
+		rate.start = GetTime()
+		-- The estimate drifts as time passes without kills; keep it current.
+		C_Timer.NewTicker(10, function()
+			if experience:IsShown() then experience:Refresh() end
+		end)
 		for _, name in ipairs(BLIZZARD) do
 			local blizzard = _G[name]
 			if blizzard then
@@ -295,3 +359,16 @@ events:SetScript('OnEvent', function(_, event)
 	end
 	Update()
 end)
+
+-- /mreset: restart the XP/h measurement.
+SLASH_MINIUIXPRESET1 = '/mreset'
+SlashCmdList.MINIUIXPRESET = function()
+	local perHour = XPPerHour()
+	if perHour then
+		print(('miniui: %s XP/h over %s, reset.'):format(Short(math.floor(perHour + 0.5)), Duration(Elapsed())))
+	else
+		print('miniui: XP/h reset.')
+	end
+	rate.gained, rate.elapsed, rate.start = 0, 0, GetTime()
+	if experience:IsShown() then experience:Refresh() end
+end

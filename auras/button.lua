@@ -33,18 +33,34 @@ end
 
 -- Button initializer, shared by unit frame and standalone containers.
 -- Signature matches oUF's CreateButton override: (element, options, button).
--- Options used: size, tooltipAnchor, dispelBorder, cancelButton, disableMouse.
+-- Options used: size, dispelBorder, cancelButton, disableMouse.
 function ns.auras.InitButton(element, options, button)
 	local size = options.size
 	button:SetSize(size, size)
 	button:EnableMouse(not options.disableMouse)
-	button:SetTooltipAnchorPoint(options.tooltipAnchor or 'ANCHOR_BOTTOMLEFT', 0, 0)
+	button:SetTooltipAnchorPoint('ANCHOR_CURSOR', 0, 0)
 
 	local px = ns.Pixels(button, 1)
 
 	local plate = button:CreateTexture(nil, 'BACKGROUND')
 	plate:SetAllPoints()
 	plate:SetColorTexture(0, 0, 0, 0.9)
+
+	-- Dispel type tints the 1px edge instead of Blizzard's glossy border
+	-- overlay: a white fill over the plate, under the icon, coloured by the
+	-- client. Debuffs without a type keep the black edge.
+	if options.dispelBorder then
+		local edge = button:CreateTexture(nil, 'BACKGROUND', nil, 1)
+		edge:SetAllPoints()
+		edge:SetTexture([[Interface\Buttons\WHITE8X8]])
+		button.Border = edge
+		button:AddDispelTypeTexture(edge, {
+			style = Enum.CustomAuraButtonDispelTypeTextureStyle.PreserveAsset,
+			showWhenHarmful = true,
+			showWhenHelpful = false,
+			customDispelColorMap = oUF.colors.dispel,
+		})
+	end
 
 	local icon = button:CreateTexture(nil, 'BORDER')
 	icon:SetPoint('TOPLEFT', px, -px)
@@ -65,18 +81,6 @@ function ns.auras.InitButton(element, options, button)
 	local overlay = CreateFrame('Frame', nil, button)
 	overlay:SetAllPoints()
 	overlay:SetFrameLevel(cooldown:GetFrameLevel() + 1)
-
-	if options.dispelBorder then
-		local border = overlay:CreateTexture(nil, 'OVERLAY')
-		border:SetAllPoints(icon)
-		button.Border = border
-		button:AddDispelTypeTexture(border, {
-			style = Enum.CustomAuraButtonDispelTypeTextureStyle.Border,
-			showWhenHarmful = true,
-			showWhenHelpful = false,
-			customDispelColorMap = oUF.colors.dispel,
-		})
-	end
 
 	local duration = ns.CreateText(overlay, 10, 'semibold', 'OUTLINE')
 	duration:SetPoint('BOTTOMLEFT', icon, 'BOTTOMLEFT', 1, 0)

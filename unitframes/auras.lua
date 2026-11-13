@@ -14,7 +14,6 @@ local function GroupOptions(self, options)
 	local spacing = ns.Pixels(self, SPACING)
 	options.size = SIZE
 	options.maxFrameCount = MAX
-	options.tooltipAnchor = self.mirrored and 'ANCHOR_TOPRIGHT' or 'ANCHOR_TOPLEFT'
 	options.layout = { elementSpacing = spacing, lineSpacing = spacing }
 	options.sortDirection = AuraContainerSortDirection.Normal -- shortest remaining first, at the left
 	options.CreateButton = ns.auras.InitButton

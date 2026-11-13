@@ -7,6 +7,8 @@ local TEXTURE = ns.media.texture
 local HEALTH_HEIGHT = ns.layout.healthHeight
 local POWER_HEIGHT = 16
 local PADDING = 1 -- physical pixels between the backdrop edge and the bars, and between bars
+local PARTY_WIDTH = 140
+local PARTY_POWER_HEIGHT = 4
 
 -- Units that keep the normal left-to-right layout. Every other unit is
 -- mirrored horizontally: bars fill right-to-left and every anchor and
@@ -257,6 +259,50 @@ local function Layout(self)
 
 end
 
+-- Party frames: the whole frame is as tall as the player's health bar, with a
+-- thin text-less power strip at the bottom and no cast bar. Width and height
+-- are set by the header's secure config (spawn.lua), since members can join
+-- in combat; the bars only anchor to the frame's edges.
+local function PartySize(frame)
+	return Snap(frame, PARTY_WIDTH), Snap(frame, HEALTH_HEIGHT)
+end
+
+local function LayoutParty(self)
+	local pad = Pixels(self, PADDING)
+
+	local backdrop = self:CreateTexture(nil, 'BACKGROUND')
+	backdrop:SetAllPoints()
+	backdrop:SetColorTexture(0, 0, 0, 0.8)
+
+	local Power = CreateBar(self)
+	Point(self, Power, 'BOTTOMLEFT', pad, pad)
+	Point(self, Power, 'BOTTOMRIGHT', -pad, pad)
+	Power:SetHeight(Snap(self, PARTY_POWER_HEIGHT))
+	self.Power = Power
+
+	local Health = CreateBar(self)
+	Point(self, Health, 'TOPLEFT', pad, -pad)
+	Point(self, Health, 'TOPRIGHT', -pad, -pad)
+	Point(self, Health, 'BOTTOMLEFT', Power, 'TOPLEFT', 0, pad)
+	Point(self, Health, 'BOTTOMRIGHT', Power, 'TOPRIGHT', 0, pad)
+	self.Health = Health
+
+	local name = CreateText(Health, 12, 'semibold') -- as the player's power text
+	Point(self, name, 'LEFT', 4, 0)
+	Point(self, name, 'RIGHT', Health, 'RIGHT', -36, 0)
+	Justify(self, name, 'LEFT')
+	name:SetWordWrap(false)
+	self.NameText = name
+
+	local hp = CreateText(Health, 16, 'semibold')
+	Point(self, hp, 'RIGHT', -4, 0)
+	Justify(self, hp, 'RIGHT')
+	Health.Text = hp
+
+	-- Out of range members fade.
+	self.Range = { insideAlpha = 1, outsideAlpha = 0.5 }
+end
+
 -- Tooltips. Blizzard's UnitFrame_OnEnter reads frame.unit, which oUF no longer
 -- sets; oUF keeps the active unit (vehicle swaps included) in frame.__unit.
 -- GameTooltip calls owner.UpdateTooltip periodically while shown.
@@ -283,7 +329,12 @@ local function Style(self, unit)
 	self:SetScript('OnEnter', OnEnter)
 	self:SetScript('OnLeave', OnLeave)
 
-	Layout(self)
+	local party = unit == 'party'
+	if party then
+		LayoutParty(self)
+	else
+		Layout(self)
+	end
 
 	self.Power.frequentUpdates = true
 	self.Power.colorDisconnected = true
@@ -295,8 +346,10 @@ local function Style(self, unit)
 
 	self:Tag(self.NameText, '[miniui:namecolor][name]')
 	self:Tag(self.Health.Text, '[miniui:health]')
-	self:Tag(self.Power.Text, '[perpp]')
-	self:Tag(self.LevelText, '[miniui:level]')
+	if not party then
+		self:Tag(self.Power.Text, '[perpp]')
+		self:Tag(self.LevelText, '[miniui:level]')
+	end
 
 	if unit == 'target' then
 		ns.auras.AttachTarget(self)
@@ -334,6 +387,7 @@ oUF:RegisterStyle('miniui', Style)
 -- Shared with dev tools.
 ns.unitframes = {
 	Layout = Layout,
+	PartySize = PartySize,
 	ApplyHealthColors = ApplyHealthColors,
 	ApplyPowerColors = ApplyPowerColors,
 }
