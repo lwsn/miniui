@@ -92,6 +92,12 @@ end
 local function ApplyPowerColors(element, r, g, b)
 	local shade, tint = ns.colors.BG_SHADE, ns.colors.TEXT_TINT
 	element.bg:SetVertexColor(r * shade, g * shade, b * shade)
+	-- Cost of the spell being cast: the part of the fill about to be spent,
+	-- halfway between fill and background.
+	if element.CostPrediction then
+		local spent = (1 + shade) / 2
+		element.CostPrediction:SetStatusBarColor(r * spent, g * spent, b * spent)
+	end
 	local tr, tg, tb = r + (1 - r) * tint, g + (1 - g) * tint, b + (1 - b) * tint
 	if element.Text then
 		element.Text:SetTextColor(tr, tg, tb)
@@ -235,7 +241,6 @@ local function Layout(self)
 	-- Text
 	local name = CreateText(Health, 13, 'semibold')
 	Point(self, name, 'LEFT', 4, 0)
-	Point(self, name, 'RIGHT', Health, 'CENTER', 20, 0)
 	Justify(self, name, 'LEFT')
 	name:SetWordWrap(false)
 	self.NameText = name
@@ -244,6 +249,8 @@ local function Layout(self)
 	Point(self, hp, 'RIGHT', -4, 0)
 	Justify(self, hp, 'RIGHT')
 	Health.Text = hp -- coloured by ApplyHealthColors
+	-- The name takes whatever the health text leaves free.
+	Point(self, name, 'RIGHT', hp, 'LEFT', -8, 0)
 
 	local pp = CreateText(Power, 12, 'semibold')
 	Point(self, pp, 'RIGHT', -4, 0)
@@ -289,7 +296,6 @@ local function LayoutParty(self)
 
 	local name = CreateText(Health, 12, 'semibold') -- as the player's power text
 	Point(self, name, 'LEFT', 4, 0)
-	Point(self, name, 'RIGHT', Health, 'RIGHT', -36, 0)
 	Justify(self, name, 'LEFT')
 	name:SetWordWrap(false)
 	self.NameText = name
@@ -298,9 +304,78 @@ local function LayoutParty(self)
 	Point(self, hp, 'RIGHT', -4, 0)
 	Justify(self, hp, 'RIGHT')
 	Health.Text = hp
+	Point(self, name, 'RIGHT', hp, 'LEFT', -6, 0) -- up to the health text
 
 	-- Out of range members fade.
 	self.Range = { insideAlpha = 1, outsideAlpha = 0.5 }
+end
+
+-- Predictions, both oUF sub-widgets resolved by the client (secret-safe):
+-- incoming heals extend the health fill, and the power cost of the spell
+-- being cast is marked at the end of the power fill. Both are child frames
+-- that would draw over the bar text, so the text moves to a frame above.
+local HEAL_COLOR = { 0.30, 0.48, 0.15 } -- a lighter take on full health's green
+local ABSORB_COLOR = { 0.45, 0.52, 0.60 } -- muted steel blue
+local OVER_ABSORB_COLOR = { 0.75, 0.82, 0.90 } -- end marker: the shield, lightened
+
+local function LiftText(bar)
+	local layer = CreateFrame('Frame', nil, bar)
+	layer:SetAllPoints()
+	layer:SetFrameLevel(bar:GetFrameLevel() + 3)
+	for _, region in ipairs({ bar:GetRegions() }) do
+		if region:IsObjectType('FontString') then
+			region:SetParent(layer)
+		end
+	end
+end
+
+local function AddPredictions(self)
+	local Health, Power = self.Health, self.Power
+
+	-- Grows from the end of the health fill toward the missing health.
+	local heal = CreateFrame('StatusBar', nil, Health)
+	heal:SetStatusBarTexture(TEXTURE)
+	heal:SetStatusBarColor(unpack(HEAL_COLOR))
+	heal:SetReverseFill(self.mirrored == true)
+	Point(self, heal, 'TOP', Health, 'TOP')
+	Point(self, heal, 'BOTTOM', Health, 'BOTTOM')
+	Point(self, heal, 'LEFT', Health:GetStatusBarTexture(), 'RIGHT')
+	Health.HealingAll = heal
+	Health.incomingHealOverflow = 1 -- stop at the bar's end, not over the border
+
+	-- Absorb shields after the incoming heals. The client clamps them to the
+	-- bar; when there's more shield than fits, a 1px line marks the bar's end.
+	local absorb = CreateFrame('StatusBar', nil, Health)
+	absorb:SetStatusBarTexture(TEXTURE)
+	absorb:SetStatusBarColor(unpack(ABSORB_COLOR))
+	absorb:SetReverseFill(self.mirrored == true)
+	Point(self, absorb, 'TOP', Health, 'TOP')
+	Point(self, absorb, 'BOTTOM', Health, 'BOTTOM')
+	Point(self, absorb, 'LEFT', heal:GetStatusBarTexture(), 'RIGHT')
+	Health.DamageAbsorb = absorb
+	-- Only the room left after health and incoming heals, so the shield
+	-- never runs past the bar's end.
+	local clamp = Enum.UnitDamageAbsorbClampMode
+	Health.damageAbsorbClampMode = clamp and clamp.MissingHealthWithoutIncomingHeals
+
+	local over = absorb:CreateTexture(nil, 'OVERLAY')
+	over:SetColorTexture(unpack(OVER_ABSORB_COLOR))
+	Point(self, over, 'TOPRIGHT', Health, 'TOPRIGHT')
+	Point(self, over, 'BOTTOMRIGHT', Health, 'BOTTOMRIGHT')
+	over:SetWidth(Pixels(self, 1))
+	Health.OverDamageAbsorbIndicator = over
+
+	-- Grows back from the end of the power fill, over what will be spent.
+	local cost = CreateFrame('StatusBar', nil, Power)
+	cost:SetStatusBarTexture(TEXTURE)
+	cost:SetReverseFill(self.mirrored ~= true)
+	Point(self, cost, 'TOP', Power, 'TOP')
+	Point(self, cost, 'BOTTOM', Power, 'BOTTOM')
+	Point(self, cost, 'RIGHT', Power:GetStatusBarTexture(), 'RIGHT')
+	Power.CostPrediction = cost
+
+	LiftText(Health)
+	LiftText(Power)
 end
 
 -- Tooltips. Blizzard's UnitFrame_OnEnter reads frame.unit, which oUF no longer
@@ -335,6 +410,7 @@ local function Style(self, unit)
 	else
 		Layout(self)
 	end
+	AddPredictions(self)
 
 	self.Power.frequentUpdates = true
 	self.Power.colorDisconnected = true
@@ -344,7 +420,7 @@ local function Style(self, unit)
 
 	self.Health.UpdateColor = UpdateHealthColor
 
-	self:Tag(self.NameText, '[miniui:namecolor][name]')
+	self:Tag(self.NameText, ('[miniui:namecolor][miniui:name(%d)]'):format(party and 16 or 22))
 	self:Tag(self.Health.Text, '[miniui:health]')
 	if not party then
 		self:Tag(self.Power.Text, '[perpp]')
@@ -378,6 +454,13 @@ oUF.Tags.Methods['miniui:health'] = function(unit)
 end
 oUF.Tags.Events['miniui:health'] = 'UNIT_HEALTH UNIT_MAXHEALTH UNIT_CONNECTION PARTY_MEMBER_ENABLE PARTY_MEMBER_DISABLE'
 
+-- [miniui:name(n)]: the name, abbreviated to n characters (ns.AbbreviateName).
+-- Without an argument it's the full name.
+oUF.Tags.Methods['miniui:name'] = function(unit, _, max)
+	return ns.AbbreviateName(UnitName(unit), tonumber(max))
+end
+oUF.Tags.Events['miniui:name'] = 'UNIT_NAME_UPDATE'
+
 -- Power text follows the fast power event, like the bar (frequentUpdates),
 -- instead of the throttled UNIT_POWER_UPDATE.
 oUF.Tags.Events.perpp = 'UNIT_MAXPOWER UNIT_POWER_FREQUENT'
@@ -388,6 +471,9 @@ oUF:RegisterStyle('miniui', Style)
 ns.unitframes = {
 	Layout = Layout,
 	PartySize = PartySize,
+	CreateBar = CreateBar, -- nameplates
+	UpdateHealthColor = UpdateHealthColor,
+	ApplyCastColors = ApplyCastColors,
 	ApplyHealthColors = ApplyHealthColors,
 	ApplyPowerColors = ApplyPowerColors,
 }

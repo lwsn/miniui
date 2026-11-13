@@ -96,22 +96,45 @@ local function SkinHealthBar()
 	if not bar then return end
 	local px = ns.Pixels(GameTooltip, 1)
 
+	-- The bar spans its whole box, edges included, starting on the tooltip's
+	-- bottom edge row; 1px edges are drawn over it. A gap left between the bar
+	-- and a backdrop depends on two rectangles rounding alike, and tooltip
+	-- sizes come from text, so they rarely sit on whole pixels.
 	bar:SetStatusBarTexture(ns.media.texture)
 	bar:ClearAllPoints()
-	bar:SetPoint('TOPLEFT', GameTooltip, 'BOTTOMLEFT', px, 0)
-	bar:SetPoint('TOPRIGHT', GameTooltip, 'BOTTOMRIGHT', -px, 0)
-	bar:SetHeight(ns.Snap(GameTooltip, BAR_HEIGHT))
+	bar:SetPoint('TOPLEFT', GameTooltip, 'BOTTOMLEFT', 0, px)
+	bar:SetPoint('TOPRIGHT', GameTooltip, 'BOTTOMRIGHT', 0, px)
+	bar:SetHeight(ns.Snap(GameTooltip, BAR_HEIGHT) + 2 * px)
 
 	local bg = bar:CreateTexture(nil, 'BACKGROUND', nil, -7)
 	bg:SetAllPoints()
 	bg:SetTexture(ns.media.texture)
 	bar.miniuiBG = bg
 
-	-- Sides and bottom; the tooltip's bottom edge is the top.
-	local edge = bar:CreateTexture(nil, 'BACKGROUND', nil, -8)
-	edge:SetPoint('TOPLEFT', -px, 0)
-	edge:SetPoint('BOTTOMRIGHT', px, -px)
-	edge:SetColorTexture(0, 0, 0, 1)
+	local border = CreateFrame('Frame', nil, bar)
+	border:SetAllPoints()
+	border:SetFrameLevel(bar:GetFrameLevel() + 1)
+	local function Edge()
+		local edge = border:CreateTexture(nil, 'OVERLAY')
+		edge:SetColorTexture(0, 0, 0, 1)
+		return edge
+	end
+	local top = Edge()
+	top:SetPoint('TOPLEFT')
+	top:SetPoint('TOPRIGHT')
+	top:SetHeight(px)
+	local bottom = Edge()
+	bottom:SetPoint('BOTTOMLEFT')
+	bottom:SetPoint('BOTTOMRIGHT')
+	bottom:SetHeight(px)
+	local left = Edge()
+	left:SetPoint('TOPLEFT', 0, -px)
+	left:SetPoint('BOTTOMLEFT', 0, px)
+	left:SetWidth(px)
+	local right = Edge()
+	right:SetPoint('TOPRIGHT', 0, -px)
+	right:SetPoint('BOTTOMRIGHT', 0, px)
+	right:SetWidth(px)
 end
 
 -- Same colours as the unit frames' health (unitframes/colors.lua), resolved

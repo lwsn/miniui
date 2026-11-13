@@ -27,12 +27,13 @@ local function HideBlizzard()
 	end
 end
 
-local function AddGroup(container, key, filter, options)
-	options.size = SIZE
+-- Size and spacing in whole pixels, so every icon lands on the pixel grid.
+local function AddGroup(container, key, filter, options, size, spacing)
+	options.size = size
 	options.layout = {
-		elementSpacing = SPACING,
-		lineSpacing = SPACING,
-		groupLineSpacing = SPACING * 3,
+		elementSpacing = spacing,
+		lineSpacing = spacing,
+		groupLineSpacing = spacing * 3,
 		forceNewLine = true,
 	}
 	options.sortMethod = AuraContainerSortMethod.ExpirationOnly
@@ -43,9 +44,10 @@ end
 
 local function Create()
 	local container = CreateFrame('AuraContainer', 'miniuiPlayerAuras', UIParent, 'CustomAuraContainerTemplate')
-	local lineSize = PER_ROW * (SIZE + SPACING) - SPACING
-	container:SetSize(lineSize, SIZE)
-	container:SetPoint('TOPRIGHT', UIParent, 'TOPRIGHT', -220, -16)
+	local size, spacing = ns.Snap(container, SIZE), ns.Snap(container, SPACING)
+	local lineSize = PER_ROW * (size + spacing) - spacing
+	container:SetSize(lineSize, size)
+	container:SetPoint('TOPRIGHT', UIParent, 'TOPRIGHT', -ns.Snap(container, 220), -ns.Snap(container, 16))
 
 	container:SetFlowLayoutAnchorPoint('TOPRIGHT')
 	container:SetFlowLayoutMaximumLineSize(lineSize)
@@ -55,11 +57,11 @@ local function Create()
 	AddGroup(container, 'Buffs', 'HELPFUL', {
 		maxFrameCount = MAX_BUFFS,
 		cancelButton = 'RightButtonUp',
-	})
+	}, size, spacing)
 	AddGroup(container, 'Debuffs', 'HARMFUL', {
 		maxFrameCount = MAX_DEBUFFS,
 		dispelBorder = true,
-	})
+	}, size, spacing)
 
 	container:SetUnit('player')
 	container:SetEnabled(true)

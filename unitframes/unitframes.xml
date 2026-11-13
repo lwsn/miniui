@@ -3,4 +3,5 @@
 	<Script file="auras.lua"/>
 	<Script file="style.lua"/>
 	<Script file="spawn.lua"/>
+	<Script file="nameplates.lua"/>
 </Ui>

@@ -73,6 +73,34 @@ function ns.CreateText(parent, size, weight, flags)
 	return fs
 end
 
+-- Shortens a name to at most `max` characters by reducing words to initials,
+-- left to right, keeping the last word whole:
+--   'Sparkleshell Snapper', 12 => 'S. Snapper'
+--   'Salt Flats Scavenger', 16 => 'S. F. Scavenger'
+-- Stops as soon as it fits; if even that is too long the result is returned
+-- as is and the font string truncates it. Secret names pass through.
+local function FirstChar(word)
+	return word:match('^[%z\1-\127\194-\244][\128-\191]*') or word:sub(1, 1)
+end
+
+function ns.AbbreviateName(name, max)
+	if not name or (issecretvalue and issecretvalue(name)) then
+		return name
+	end
+	if not max or strlenutf8(name) <= max then
+		return name
+	end
+	local words = { strsplit(' ', name) }
+	for i = 1, #words - 1 do
+		words[i] = FirstChar(words[i]) .. '.'
+		local short = table.concat(words, ' ')
+		if strlenutf8(short) <= max then
+			return short
+		end
+	end
+	return table.concat(words, ' ')
+end
+
 -- /rl: shorthand for /reload
 SLASH_MINIUIRELOAD1 = '/rl'
 SlashCmdList.MINIUIRELOAD = ReloadUI

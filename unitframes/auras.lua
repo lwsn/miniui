@@ -12,7 +12,7 @@ local MAX = 16
 
 local function GroupOptions(self, options)
 	local spacing = ns.Pixels(self, SPACING)
-	options.size = SIZE
+	options.size = ns.Snap(self, SIZE) -- whole pixels
 	options.maxFrameCount = MAX
 	options.layout = { elementSpacing = spacing, lineSpacing = spacing }
 	options.sortDirection = AuraContainerSortDirection.Normal -- shortest remaining first, at the left
@@ -30,7 +30,7 @@ function ns.auras.AttachTarget(self)
 		growthY = 'UP',
 		layoutLimit = self:GetWidth(),
 	})
-	auras:SetSize(self:GetWidth(), SIZE)
+	auras:SetSize(self:GetWidth(), ns.Snap(self, SIZE))
 	auras:SetPoint('BOTTOM' .. side, self, 'TOP' .. side, 0, ns.Pixels(self, SPACING))
 
 	auras:AddGroup('HARMFUL|PLAYER', GroupOptions(self, { dispelBorder = true }))

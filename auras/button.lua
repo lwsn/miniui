@@ -95,5 +95,11 @@ function ns.auras.InitButton(element, options, button)
 	if options.cancelButton then
 		button:SetCancelAuraButtons(options.cancelButton)
 	end
+
+	-- The container places buttons itself, possibly between pixels; rounding
+	-- the button's layout keeps its 1px edge whole on every side.
+	if PixelUtil.SetRoundLayoutToNearestPixelRecursively then
+		PixelUtil.SetRoundLayoutToNearestPixelRecursively(button, true)
+	end
 end
 
