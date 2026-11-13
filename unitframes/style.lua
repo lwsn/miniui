@@ -1,10 +1,9 @@
 local _, ns = ...
 local oUF = ns.oUF
 
-local Pixels, Snap, SnapEven, CreateText = ns.Pixels, ns.Snap, ns.SnapEven, ns.CreateText
+local Pixels, Snap, CreateText = ns.Pixels, ns.Snap, ns.CreateText
 
 local TEXTURE = ns.media.texture
-local WIDTH = 220
 local HEALTH_HEIGHT = ns.layout.healthHeight
 local POWER_HEIGHT = 16
 local PADDING = 1 -- physical pixels between the backdrop edge and the bars, and between bars
@@ -91,8 +90,13 @@ end
 local function ApplyPowerColors(element, r, g, b)
 	local shade, tint = ns.colors.BG_SHADE, ns.colors.TEXT_TINT
 	element.bg:SetVertexColor(r * shade, g * shade, b * shade)
+	local tr, tg, tb = r + (1 - r) * tint, g + (1 - g) * tint, b + (1 - b) * tint
 	if element.Text then
-		element.Text:SetTextColor(r + (1 - r) * tint, g + (1 - g) * tint, b + (1 - b) * tint)
+		element.Text:SetTextColor(tr, tg, tb)
+	end
+	-- Level text's base colour; its tag overrides it except for even-level units.
+	if element.Level then
+		element.Level:SetTextColor(tr, tg, tb)
 	end
 end
 
@@ -146,7 +150,8 @@ local function Layout(self)
 	-- so the health bar is exactly as tall as an action button.
 	local healthHeight = Snap(self, HEALTH_HEIGHT)
 	local powerHeight = Snap(self, POWER_HEIGHT)
-	self:SetSize(SnapEven(self, WIDTH), healthHeight + powerHeight + 3 * pad)
+	-- As wide as action bar 1.
+	self:SetSize(Pixels(self, ns.layout.MainPixels(self)), healthHeight + powerHeight + 3 * pad)
 
 	-- Backdrop fills the frame exactly; the bars sit inside it, padded by a
 	-- pixel, so the backdrop shows as a 1px outline and a 1px divider.
@@ -243,6 +248,13 @@ local function Layout(self)
 	Justify(self, pp, 'RIGHT')
 	Power.Text = pp -- coloured by ApplyPowerColors
 
+	-- Level opposite the power text; coloured by its tag.
+	local level = CreateText(Power, 12, 'semibold')
+	Point(self, level, 'LEFT', 4, 0)
+	Justify(self, level, 'LEFT')
+	self.LevelText = level
+	Power.Level = level -- coloured by ApplyPowerColors, unless the tag colours it
+
 end
 
 -- Tooltips. Blizzard's UnitFrame_OnEnter reads frame.unit, which oUF no longer
@@ -284,6 +296,7 @@ local function Style(self, unit)
 	self:Tag(self.NameText, '[miniui:namecolor][name]')
 	self:Tag(self.Health.Text, '[dead][offline][perhp]')
 	self:Tag(self.Power.Text, '[perpp]')
+	self:Tag(self.LevelText, '[miniui:level]')
 
 	if unit == 'target' then
 		ns.auras.AttachTarget(self)

@@ -16,6 +16,7 @@ function ns.SkinButton(button)
 	local plate = button:CreateTexture(nil, 'BACKGROUND', nil, -8)
 	plate:SetAllPoints()
 	plate:SetColorTexture(0, 0, 0, 1)
+	button.plate = plate -- the 1px border; recoloured for states like autocast
 
 	local empty = button:CreateTexture(nil, 'BACKGROUND', nil, -7)
 	empty:SetPoint('TOPLEFT', px, -px)

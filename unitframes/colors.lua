@@ -21,6 +21,18 @@ local function Hex(r, g, b)
 	return string.format('|cff%02x%02x%02x', r * 255, g * 255, b * 255)
 end
 
+-- Difficulty colours (NPC names, level text), softened so they sit with the
+-- muted palette: partly desaturated, then brightened toward white.
+local DIFFICULTY_DESATURATE = 0.35 -- 0 = Blizzard's colour, 1 = grey
+local DIFFICULTY_LIGHTEN = 0.3 -- mix toward white
+
+local function SoftDifficulty(r, g, b)
+	local l = 0.2126 * r + 0.7152 * g + 0.0722 * b
+	r, g, b = r + (l - r) * DIFFICULTY_DESATURATE, g + (l - g) * DIFFICULTY_DESATURATE, b + (l - b) * DIFFICULTY_DESATURATE
+	return r + (1 - r) * DIFFICULTY_LIGHTEN, g + (1 - g) * DIFFICULTY_LIGHTEN, b + (1 - b) * DIFFICULTY_LIGHTEN
+end
+
+
 -- Health: one hue per health percentage, in three brightnesses. The bar uses
 -- the base colour, its background a darker shade, and the health text a lighter
 -- tint. Each is its own curve, because health may be a secret value that can
@@ -103,21 +115,78 @@ for class, c in next, oUF.colors.class do
 end
 
 -- [miniui:namecolor]: class colour for players, difficulty colour for NPCs.
+-- Tags can't branch on hidden (secret) values, which some unit info may be
+-- in combat. Every tested value is checked first; a hidden one falls back to
+-- a plainer result instead of erroring.
+local function Known(value)
+	return not issecretvalue(value)
+end
+
 oUF.Tags.Methods['miniui:namecolor'] = function(unit)
-	if UnitIsPlayer(unit) or UnitInPartyIsAI(unit) then
+	local isPlayer = UnitIsPlayer(unit)
+	local isAI = UnitInPartyIsAI(unit)
+	if not Known(isPlayer) or not Known(isAI) then
+		return
+	end
+	if isPlayer or isAI then
 		local _, class = UnitClass(unit)
-		if class == nil then
-			return
-		elseif issecretvalue(class) then
+		if not Known(class) then
 			-- Secret class tokens can't index our table; fall back to the
 			-- client's colour, unadjusted.
 			return C_ClassColor.GetClassColor(class):GenerateHexColorMarkup()
+		elseif class == nil then
+			return
 		end
 		return colors.class[class]
 	end
 
 	local level = UnitEffectiveLevel(unit)
+	if not Known(level) then
+		return
+	end
 	local c = GetCreatureDifficultyColor((level > 0) and level or 999)
-	return Hex(c.r, c.g, c.b)
+	return Hex(SoftDifficulty(c.r, c.g, c.b))
 end
 oUF.Tags.Events['miniui:namecolor'] = 'UNIT_NAME_UPDATE UNIT_FACTION UNIT_LEVEL PLAYER_LEVEL_UP'
+
+-- Classification suffix. There is no "rare boss" classification; bosses
+-- come from UnitIsBossMob or 'worldboss'.
+local CLASSIFICATION = {
+	elite = '+',
+	rare = 'r',
+	rareelite = 'r+',
+	worldboss = 'b',
+}
+
+-- Yellow (even-level) units: no colour markup, so the text keeps the power
+-- text colour set by ApplyPowerColors and blends into the bar.
+local function IsEvenLevel(c)
+	local yellow = QuestDifficultyColors and QuestDifficultyColors.difficult
+	return yellow and (c == yellow or (c.r == yellow.r and c.g == yellow.g and c.b == yellow.b))
+end
+
+-- '60', '60+', '61r+', '??b'. Level ?? (unknown, or far above you) gets the
+-- hardest difficulty colour.
+oUF.Tags.Methods['miniui:level'] = function(unit)
+	local level = UnitEffectiveLevel(unit)
+	if not Known(level) then
+		return level -- shown as is, uncoloured
+	end
+
+	local suffix = ''
+	local isBoss = UnitIsBossMob and UnitIsBossMob(unit)
+	local classification = UnitClassification(unit)
+	if Known(isBoss) and isBoss then
+		suffix = 'b'
+	elseif Known(classification) then
+		suffix = CLASSIFICATION[classification] or ''
+	end
+
+	local text = (level > 0 and level or '??') .. suffix
+	local c = GetCreatureDifficultyColor(level > 0 and level or 999)
+	if IsEvenLevel(c) then
+		return text
+	end
+	return Hex(SoftDifficulty(c.r, c.g, c.b)) .. text .. '|r'
+end
+oUF.Tags.Events['miniui:level'] = 'UNIT_LEVEL PLAYER_LEVEL_UP UNIT_CLASSIFICATION_CHANGED UNIT_FACTION'

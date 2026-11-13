@@ -9,6 +9,7 @@ oUF:Factory(function(self)
 
 	local player = self:Spawn('player')
 	player:SetPoint('TOPRIGHT', bar, 'TOPLEFT', -ns.Pixels(player, 1), 0)
+	ns.playerFrame = player -- utility/fader.lua
 
 	local target = self:Spawn('target')
 	target:SetPoint('TOPLEFT', bar, 'TOPRIGHT', ns.Pixels(target, 1), 0)

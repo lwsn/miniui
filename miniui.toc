@@ -13,15 +13,19 @@ core.lua
 auras\button.lua
 minimap\minimap.lua
 minimap\info.lua
+minimap\buttons.lua
 statusbars\statusbars.lua
 actionbars\skin.lua
 actionbars\actionbars.lua
 actionbars\combopoints.lua
 actionbars\stance.lua
+actionbars\petbar.lua
 bags\bags.lua
 unitframes\unitframes.xml
 auras\player.lua
 info\fps.lua
+utility\automation.lua
+utility\fader.lua
 
 dev\fontsampler.lua
 dev\testframes.lua

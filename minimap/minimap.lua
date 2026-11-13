@@ -8,7 +8,6 @@ local _, ns = ...
 -- Blizzard's minimap cluster (zone text, clock, tracking, mail and so on) is
 -- hidden; the Minimap frame itself is moved out of it.
 
-local COLUMNS = 6 -- as wide as this many action buttons: action bar 1's block
 local BOTTOM = 10 -- UI units from the bottom of the screen to the border's bottom edge
 
 -- Holder: the map plus its 1px border. Other modules anchor to this.
@@ -33,7 +32,7 @@ local placing = false
 local function Place()
 	placing = true
 	local px = ns.Pixels(holder, 1)
-	local outer = ns.layout.GridPixels(holder, COLUMNS) -- border included
+	local outer = ns.layout.MainPixels(holder) -- action bar 1's width, border included
 	local size = outer - 2
 
 	-- The action bars are anchored to the holder, so it only moves out of
@@ -107,6 +106,10 @@ local blizzardOnMouseUp
 local function OnMouseUp(self, mouseButton, ...)
 	if mouseButton == 'RightButton' then
 		OpenTrackingMenu()
+	elseif mouseButton == 'MiddleButton' then
+		if ns.ToggleMinimapButtons then
+			ns.ToggleMinimapButtons() -- minimap/buttons.lua
+		end
 	elseif blizzardOnMouseUp then
 		blizzardOnMouseUp(self, mouseButton, ...)
 	end

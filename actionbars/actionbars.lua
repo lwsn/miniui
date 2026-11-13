@@ -24,7 +24,7 @@ local NUM = 12 -- buttons per bar
 -- action slots, the same ones Blizzard's bars 2 and 3 use, and take those
 -- bars' keybinds.
 local BARS = {
-	{ side = 'CENTER', columns = 6, binding = 'ACTIONBUTTON', paging = true }, -- actions 1-12, paged
+	{ side = 'CENTER', columns = ns.layout.mainColumns, binding = 'ACTIONBUTTON', paging = true }, -- actions 1-12, paged
 	{ side = 'LEFT', columns = 12, binding = 'MULTIACTIONBAR1BUTTON', offset = 60 }, -- bar 2 (bottom left): 61-72
 	{ side = 'RIGHT', columns = 12, binding = 'MULTIACTIONBAR2BUTTON', offset = 48 }, -- bar 3 (bottom right): 49-60
 }

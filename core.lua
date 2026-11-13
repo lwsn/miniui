@@ -18,10 +18,13 @@ ns.media.texture = [[Interface\Buttons\WHITE8x8]]
 ns.layout = {
 	-- Unit frame health fill. Action button icons match it, so the buttons
 	-- line up with the health bar and the divider below it.
-	healthHeight = 33,
+	healthHeight = 31,
 	-- Physical pixels between action buttons: -1 makes neighbours share
 	-- their 1px border.
 	buttonSpacing = -1,
+	-- Action bar 1's columns. Its width is shared by the unit frames, the
+	-- minimap and the pet bar.
+	mainColumns = 6,
 }
 
 -- Action button size in pixels: icon as tall as the health fill, plus a 1px
@@ -33,6 +36,11 @@ end
 -- Length in pixels of a run of `count` action buttons.
 function ns.layout.GridPixels(frame, count)
 	return count * ns.layout.ButtonPixels(frame) + (count - 1) * ns.layout.buttonSpacing
+end
+
+-- Action bar 1's width in pixels.
+function ns.layout.MainPixels(frame)
+	return ns.layout.GridPixels(frame, ns.layout.mainColumns)
 end
 
 -- UI units are not screen pixels unless the UI scale is exactly 768/screenHeight,
