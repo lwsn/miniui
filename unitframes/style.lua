@@ -294,7 +294,7 @@ local function Style(self, unit)
 	self.Health.UpdateColor = UpdateHealthColor
 
 	self:Tag(self.NameText, '[miniui:namecolor][name]')
-	self:Tag(self.Health.Text, '[dead][offline][perhp]')
+	self:Tag(self.Health.Text, '[miniui:health]')
 	self:Tag(self.Power.Text, '[perpp]')
 	self:Tag(self.LevelText, '[miniui:level]')
 
@@ -302,6 +302,28 @@ local function Style(self, unit)
 		ns.auras.AttachTarget(self)
 	end
 end
+
+-- Health text: 'Dead', 'Ghost' or 'Offline' in place of the percentage, not
+-- before it (oUF joins separate tags, giving 'Dead0'). Status checks that
+-- come back hidden are skipped and the percentage shows.
+local function Known(value)
+	return not (issecretvalue and issecretvalue(value))
+end
+
+oUF.Tags.Methods['miniui:health'] = function(unit)
+	local connected = UnitIsConnected(unit)
+	if Known(connected) and not connected then
+		return 'Offline'
+	end
+	local dead, ghost = UnitIsDead(unit), UnitIsGhost(unit)
+	if Known(dead) and dead then
+		return 'Dead'
+	elseif Known(ghost) and ghost then
+		return 'Ghost'
+	end
+	return string.format('%d', UnitHealthPercent(unit, true, CurveConstants.ScaleTo100))
+end
+oUF.Tags.Events['miniui:health'] = 'UNIT_HEALTH UNIT_MAXHEALTH UNIT_CONNECTION PARTY_MEMBER_ENABLE PARTY_MEMBER_DISABLE'
 
 -- Power text follows the fast power event, like the bar (frequentUpdates),
 -- instead of the throttled UNIT_POWER_UPDATE.
