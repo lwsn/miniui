@@ -10,4 +10,18 @@ embeds\oUF\oUF.xml
 
 core.lua
 
+auras\button.lua
+minimap\minimap.lua
+minimap\info.lua
+statusbars\statusbars.lua
+actionbars\skin.lua
+actionbars\actionbars.lua
+actionbars\combopoints.lua
+actionbars\stance.lua
+bags\bags.lua
 unitframes\unitframes.xml
+auras\player.lua
+info\fps.lua
+
+dev\fontsampler.lua
+dev\testframes.lua
