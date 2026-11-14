@@ -118,9 +118,13 @@ end
 -- Experience -------------------------------------------------------------------
 
 local experience = CreateBar('miniuiExperience')
-experience:EnableMouse(false) -- numbers are on the bar instead of a tooltip
+-- Numbers are on the bar instead of a tooltip. A click switches between
+-- 'xp' mode (current and max experience at the ends) and 'time' mode (XP per
+-- hour and time to level); the percentage stays in the middle in both.
+experience:SetScript('OnEnter', nil)
+experience:SetScript('OnLeave', nil)
+experience.mode = 'xp'
 
--- Current and max experience at either end.
 experience.left = ns.CreateText(experience.bar, TEXT_SIZE, 'semibold')
 experience.left:SetPoint('LEFT', 4, 0)
 experience.right = ns.CreateText(experience.bar, TEXT_SIZE, 'semibold')
@@ -165,6 +169,19 @@ local function XPPerHour()
 	return rate.gained / elapsed * 3600
 end
 
+-- 21200 => 21.2k/h, 1250000 => 1.3m/h, 950 => 950/h
+local function PerHour(n)
+	local function Trim(value, suffix)
+		return (('%.1f'):format(value):gsub('%.0$', '')) .. suffix
+	end
+	if n >= 1e6 then
+		return Trim(n / 1e6, 'm/h')
+	elseif n >= 1e3 then
+		return Trim(n / 1e3, 'k/h')
+	end
+	return math.floor(n + 0.5) .. '/h'
+end
+
 -- 4500 => 1h 15m, 720 => 12m, 30 => <1m
 local function Duration(seconds)
 	local minutes = math.floor(seconds / 60)
@@ -191,16 +208,23 @@ function experience:Refresh()
 	if exhaustion > 0 then
 		text = ('%s (%d)'):format(text, math.floor(exhaustion / max * 100))
 	end
-	-- Time to level at the current XP/h, after the percentage.
-	local perHour = XPPerHour()
-	if perHour then
-		text = text .. '  ' .. Duration((max - cur) / perHour * 3600)
-	end
 	self.text:SetText(text)
-	self.left:SetText(Short(cur))
-	self.right:SetText(Short(max))
+	if self.mode == 'time' then
+		local perHour = XPPerHour()
+		self.left:SetText(PerHour(perHour or 0))
+		self.right:SetText(perHour and Duration((max - cur) / perHour * 3600) or '-')
+	else
+		self.left:SetText(Short(cur))
+		self.right:SetText(Short(max))
+	end
 	return true
 end
+
+experience:SetScript('OnMouseUp', function(self, button)
+	if button ~= 'LeftButton' or not self:IsMouseOver() then return end
+	self.mode = self.mode == 'time' and 'xp' or 'time'
+	self:Refresh()
+end)
 
 -- Reputation -------------------------------------------------------------------
 
@@ -331,13 +355,14 @@ events:RegisterEvent('PLAYER_LOGIN')
 events:RegisterEvent('PLAYER_LOGOUT')
 events:SetScript('OnEvent', function(_, event)
 	if event == 'PLAYER_LOGOUT' then
-		miniuiXPDB = { gained = rate.gained, elapsed = Elapsed() }
+		miniuiXPDB = { gained = rate.gained, elapsed = Elapsed(), mode = experience.mode }
 		return
 	end
 	if event == 'PLAYER_LOGIN' then
 		if type(miniuiXPDB) == 'table' then
 			rate.gained = tonumber(miniuiXPDB.gained) or 0
 			rate.elapsed = tonumber(miniuiXPDB.elapsed) or 0
+			experience.mode = miniuiXPDB.mode == 'time' and 'time' or 'xp'
 		end
 		rate.start = GetTime()
 		-- The estimate drifts as time passes without kills; keep it current.

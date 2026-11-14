@@ -73,17 +73,21 @@ function ns.CreateText(parent, size, weight, flags)
 	return fs
 end
 
--- Shortens a name to at most `max` characters by reducing words to initials,
--- left to right, keeping the last word whole:
+-- Shortens a name to at most `max` characters. Creature names reduce words to
+-- initials left to right, keeping the last word whole:
 --   'Sparkleshell Snapper', 12 => 'S. Snapper'
 --   'Salt Flats Scavenger', 16 => 'S. F. Scavenger'
--- Stops as soon as it fits; if even that is too long the result is returned
--- as is and the font string truncates it. Secret names pass through.
+-- Player names (`person`, "Firstname Lastname") keep the first name whole and
+-- shorten from the end instead, then drop to the first name alone:
+--   'Annabelle Thornquist', 14 => 'Annabelle T.'
+--   'Annabelle Thornquist', 8  => 'Annabelle'
+-- Stops as soon as it fits; if even the shortest form is too long it's
+-- returned as is and the font string truncates it. Secret names pass through.
 local function FirstChar(word)
 	return word:match('^[%z\1-\127\194-\244][\128-\191]*') or word:sub(1, 1)
 end
 
-function ns.AbbreviateName(name, max)
+function ns.AbbreviateName(name, max, person)
 	if not name or (issecretvalue and issecretvalue(name)) then
 		return name
 	end
@@ -91,12 +95,21 @@ function ns.AbbreviateName(name, max)
 		return name
 	end
 	local words = { strsplit(' ', name) }
-	for i = 1, #words - 1 do
+	local first, last, step
+	if person then
+		first, last, step = #words, 2, -1
+	else
+		first, last, step = 1, #words - 1, 1
+	end
+	for i = first, last, step do
 		words[i] = FirstChar(words[i]) .. '.'
 		local short = table.concat(words, ' ')
 		if strlenutf8(short) <= max then
 			return short
 		end
+	end
+	if person then
+		return words[1]
 	end
 	return table.concat(words, ' ')
 end

@@ -454,10 +454,15 @@ oUF.Tags.Methods['miniui:health'] = function(unit)
 end
 oUF.Tags.Events['miniui:health'] = 'UNIT_HEALTH UNIT_MAXHEALTH UNIT_CONNECTION PARTY_MEMBER_ENABLE PARTY_MEMBER_DISABLE'
 
--- [miniui:name(n)]: the name, abbreviated to n characters (ns.AbbreviateName).
--- Without an argument it's the full name.
-oUF.Tags.Methods['miniui:name'] = function(unit, _, max)
-	return ns.AbbreviateName(UnitName(unit), tonumber(max))
+-- [miniui:name(n)]: the name, abbreviated to n characters (ns.AbbreviateName),
+-- players as "Firstname L.", creatures as "S. F. Scavenger". Without an
+-- argument it's the full name. A hidden player check counts as a creature.
+-- The name comes from oUF's own [name] tag: on this client UnitName returns
+-- only a player's first name, and oUF knows to ask NameUtil for the full one.
+oUF.Tags.Methods['miniui:name'] = function(unit, realUnit, max)
+	local isPlayer = UnitIsPlayer(unit)
+	local person = not (issecretvalue and issecretvalue(isPlayer)) and isPlayer
+	return ns.AbbreviateName(oUF.Tags.Methods.name(unit, realUnit), tonumber(max), person)
 end
 oUF.Tags.Events['miniui:name'] = 'UNIT_NAME_UPDATE'
 
