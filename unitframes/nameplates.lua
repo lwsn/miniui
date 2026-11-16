@@ -105,7 +105,7 @@ end
 
 -- The shared aura button leaves its edge as a 1px gap around the icon, which
 -- flickers on a moving plate like the bars did. Here the icon fills the
--- button and drawn edges cover its outer pixel, above the cooldown swipe and
+-- button and drawn edges cover its outer pixel, above the elapsed-time bar and
 -- below nothing that matters (timer and count sit well inside).
 local function InitAuraButton(element, options, button)
 	ns.auras.InitButton(element, options, button)
@@ -114,7 +114,7 @@ local function InitAuraButton(element, options, button)
 
 	local border = CreateFrame('Frame', nil, button)
 	border:SetAllPoints()
-	border:SetFrameLevel(button.Cooldown:GetFrameLevel() + 1)
+	border:SetFrameLevel(button.Elapsed:GetFrameLevel() + 1)
 	PlaceEdges(CreateEdges(border, 'OVERLAY', 0), button, button, Pixels(button, 1))
 
 	if RoundLayout then
@@ -211,6 +211,7 @@ local function Style(self)
 
 	local Health = ns.unitframes.CreateBar(bars)
 	Health.UpdateColor = ns.unitframes.UpdateHealthColor
+	Health.colorReaction = true -- flat hostile/neutral colours
 	self.Health = Health
 
 	-- Edges above the bar and its text.
@@ -280,7 +281,8 @@ local function Style(self)
 		layoutLimit = Snap(self, WIDTH),
 	})
 	auras:AddGroup('HARMFUL|PLAYER', {
-		size = AURA_SIZE,
+		width = AURA_SIZE, -- square, unlike the strips elsewhere
+		height = AURA_SIZE,
 		maxFrameCount = AURA_MAX,
 		disableMouse = true,
 		layout = { elementSpacing = px, lineSpacing = px },

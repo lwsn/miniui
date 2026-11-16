@@ -24,6 +24,7 @@ actionbars\petbar.lua
 bags\bags.lua
 unitframes\unitframes.xml
 auras\player.lua
+auras\procs.lua
 info\fps.lua
 info\kills.lua
 utility\automation.lua

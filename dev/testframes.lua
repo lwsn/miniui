@@ -1,11 +1,22 @@
 -- Dev tool: /mtest toggles a grid of mock unit frames, one row per class and
--- one column per health step, built with the real unit frame layout and
--- colours. Remove from the .toc when no longer needed.
+-- per NPC difficulty, and one column per health step, then the flat hostile
+-- and neutral colours, built with the real unit frame layout and colours.
+-- Remove from the .toc when no longer needed.
 
 local _, ns = ...
 local oUF = ns.oUF
 
-local STEPS = { 1, 25, 50, 75, 100 }
+-- Health curve steps, then the flat reaction colours (target and nameplates)
+-- shown at an arbitrary fill.
+local COLUMNS = {
+	{ pct = 1 },
+	{ pct = 25 },
+	{ pct = 50 },
+	{ pct = 75 },
+	{ pct = 100 },
+	{ pct = 60, flat = 'hostile', label = 'Hostile' },
+	{ pct = 60, flat = 'neutral', label = 'Neutral' },
+}
 local GAP, PAD, HEADER = 8, 12, 40
 local MAX_HEIGHT = 760
 
@@ -33,7 +44,37 @@ local function SortedClasses()
 	return classes
 end
 
-local function MockFrame(parent, class, pct)
+-- NPC names by content difficulty, hardest first, with the
+-- QuestDifficultyColors key each maps to.
+local DIFFICULTIES = {
+	{ label = 'Impossible', key = 'impossible' },
+	{ label = 'Difficult', key = 'verydifficult' },
+	{ label = 'Fair', key = 'difficult' },
+	{ label = 'Easy', key = 'standard' },
+	{ label = 'Trivial', key = 'trivial' },
+}
+
+-- One row per class (class-coloured name, class power), then one per NPC
+-- difficulty (difficulty-coloured name, mana).
+local function Rows()
+	local rows = {}
+	for _, class in ipairs(SortedClasses()) do
+		table.insert(rows, {
+			name = ns.colors.class[class] .. LOCALIZED_CLASS_NAMES_MALE[class],
+			power = oUF.colors.power[CLASS_POWER[class]] or oUF.colors.power.MANA,
+		})
+	end
+	for _, d in ipairs(DIFFICULTIES) do
+		table.insert(rows, {
+			name = (ns.colors.DifficultyHex(d.key) or '') .. d.label .. ' mob',
+			power = oUF.colors.power.MANA,
+		})
+	end
+	return rows
+end
+
+local function MockFrame(parent, row, column)
+	local pct = column.pct
 	local cell = CreateFrame('Frame', nil, parent)
 	ns.unitframes.Layout(cell)
 	cell.Castbar:Hide() -- hangs below the frame, into the next grid row
@@ -43,19 +84,24 @@ local function MockFrame(parent, class, pct)
 	health:SetValue(pct)
 	health.Text:SetText(pct)
 
-	local curves = ns.colors.health
-	local x = pct / 100
-	ns.unitframes.ApplyHealthColors(health,
-		curves.bar:Evaluate(x), curves.bg:Evaluate(x), curves.text:Evaluate(x))
+	local flat = column.flat and ns.colors[column.flat]
+	if flat then
+		ns.unitframes.ApplyHealthColors(health, flat.bar, flat.bg, flat.text)
+	else
+		local curves = ns.colors.health
+		local x = pct / 100
+		ns.unitframes.ApplyHealthColors(health,
+			curves.bar:Evaluate(x), curves.bg:Evaluate(x), curves.text:Evaluate(x))
+	end
 
-	local power = oUF.colors.power[CLASS_POWER[class]] or oUF.colors.power.MANA
+	local power = row.power
 	cell.Power:SetMinMaxValues(0, 100)
 	cell.Power:SetValue(pct)
 	cell.Power:SetStatusBarColor(power:GetRGB())
 	cell.Power.Text:SetText(pct)
 	ns.unitframes.ApplyPowerColors(cell.Power, power:GetRGB())
 
-	cell.NameText:SetText(ns.colors.class[class] .. LOCALIZED_CLASS_NAMES_MALE[class])
+	cell.NameText:SetText(row.name)
 	return cell
 end
 
@@ -91,24 +137,24 @@ local function Build()
 	scroll:SetScrollChild(content)
 
 	local cellW, cellH
-	local classes = SortedClasses()
-	for row, class in ipairs(classes) do
-		for col, pct in ipairs(STEPS) do
-			local cell = MockFrame(content, class, pct)
+	local rows = Rows()
+	for row, info in ipairs(rows) do
+		for col, column in ipairs(COLUMNS) do
+			local cell = MockFrame(content, info, column)
 			cellW, cellH = cell:GetSize()
 			PixelUtil.SetPoint(cell, 'TOPLEFT', content, 'TOPLEFT',
 				(col - 1) * (cellW + GAP), -(row - 1) * (cellH + GAP))
 		end
 	end
 
-	local width = #STEPS * (cellW + GAP) - GAP
-	local height = #classes * (cellH + GAP) - GAP
+	local width = #COLUMNS * (cellW + GAP) - GAP
+	local height = #rows * (cellH + GAP) - GAP
 	content:SetSize(width, height)
 
-	for col, pct in ipairs(STEPS) do
+	for col, column in ipairs(COLUMNS) do
 		local label = frame:CreateFontString(nil, 'OVERLAY', 'GameFontHighlight')
 		label:SetPoint('BOTTOM', scroll, 'TOPLEFT', (col - 1) * (cellW + GAP) + cellW / 2, 6)
-		label:SetText(pct .. '%')
+		label:SetText(column.label or (column.pct .. '%'))
 	end
 
 	frame:SetSize(width + PAD * 2, math.min(height + PAD * 2 + HEADER, MAX_HEIGHT))

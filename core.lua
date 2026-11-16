@@ -25,6 +25,13 @@ ns.layout = {
 	-- Action bar 1's columns. Its width is shared by the unit frames, the
 	-- minimap and the pet bar.
 	mainColumns = 6,
+	-- Aura columns above the player and target frames: debuffs on the side
+	-- next to bar 1, buffs on the outer side (unitframes/auras.lua). The unit
+	-- frames widen to fit both.
+	auraColumns = {
+		player = { buffs = 4, debuffs = 2 },
+		target = { buffs = 3, debuffs = 3 },
+	},
 }
 
 -- Action button size in pixels: icon as tall as the health fill, plus a 1px
@@ -41,6 +48,20 @@ end
 -- Action bar 1's width in pixels.
 function ns.layout.MainPixels(frame)
 	return ns.layout.GridPixels(frame, ns.layout.mainColumns)
+end
+
+-- Player and target frame width in pixels: action bar 1's width, or wider if
+-- either frame's aura columns need it: icons within a block share their 1px
+-- edge, and the buff and debuff blocks are at least 1px apart. Both frames
+-- share it so they stay symmetrical.
+function ns.layout.UnitFramePixels(frame)
+	local aura = math.max(1, math.floor(ns.auras.WIDTH / ns.Pixels(frame, 1) + 0.5))
+	local width = ns.layout.MainPixels(frame)
+	for _, c in pairs(ns.layout.auraColumns) do
+		local blocks = (c.buffs * aura - (c.buffs - 1)) + (c.debuffs * aura - (c.debuffs - 1))
+		width = math.max(width, blocks + 1)
+	end
+	return width
 end
 
 -- UI units are not screen pixels unless the UI scale is exactly 768/screenHeight,

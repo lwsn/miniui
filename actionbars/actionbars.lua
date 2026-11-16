@@ -78,6 +78,10 @@ end
 -- changes. It also owns the override bindings for every bar.
 local bar = CreateFrame('Frame', 'miniuiActionBar', UIParent, 'SecureHandlerStateTemplate')
 ns.actionbar = bar
+-- Functions run after every layout, for frames that follow bar 1 without
+-- anchoring to it (anchoring to a protected frame restricts showing them in
+-- combat). See auras/procs.lua.
+bar.onLayout = {}
 BARS[1].frame = bar
 for i = 2, #BARS do
 	BARS[i].frame = CreateFrame('Frame', 'miniuiActionBar' .. i, UIParent)
@@ -335,6 +339,10 @@ local function Layout()
 			button:ClearAllPoints()
 			button:SetPoint('TOPLEFT', frame, 'TOPLEFT', col * step * px, -row * step * px)
 		end
+	end
+
+	for _, fn in ipairs(bar.onLayout) do
+		fn()
 	end
 end
 

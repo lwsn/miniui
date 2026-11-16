@@ -29,6 +29,6 @@ oUF:Factory(function(self)
 	)
 	party:SetVisibility('custom [group:party,nogroup:raid] show; hide')
 	-- The player frame's left edge: bar 1's left, minus the 1px gap and the
-	-- player frame's width (bar 1's width).
-	party:SetPoint('TOPLEFT', bar, 'BOTTOMLEFT', -(1 + ns.layout.MainPixels(UIParent)) * px, -px)
+	-- player frame's width.
+	party:SetPoint('TOPLEFT', bar, 'BOTTOMLEFT', -(1 + ns.layout.UnitFramePixels(UIParent)) * px, -px)
 end)

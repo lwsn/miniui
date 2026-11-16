@@ -71,6 +71,22 @@ colors.inactive = {
 	text = CreateColor(0.75, 0.75, 0.75),
 }
 
+-- Hostile and neutral units on the target frame and nameplates: a flat colour
+-- by reaction instead of the health curve, in the same three brightnesses.
+-- Hostile is darker and greyer than the curve's low-health red, so the two
+-- don't read alike and red names (death knights, high-level mobs) stay
+-- readable on it.
+local function Flat(r, g, b)
+	return {
+		bar = CreateColor(r, g, b),
+		bg = CreateColor(r * BG_SHADE, g * BG_SHADE, b * BG_SHADE),
+		text = CreateColor(r + (1 - r) * TEXT_TINT, g + (1 - g) * TEXT_TINT, b + (1 - b) * TEXT_TINT),
+	}
+end
+
+colors.hostile = Flat(0.41, 0.15, 0.13) -- dark, greyed red
+colors.neutral = Flat(0.55, 0.47, 0.12) -- dark yellow
+
 -- Power bar colours, replacing oUF's defaults in place so both the token
 -- (colors.power.MANA) and power type index (colors.power[0]) aliases change.
 -- An { r, g, b } replaces the colour; a number scales the client's default.
@@ -122,6 +138,79 @@ local function Known(value)
 	return not issecretvalue(value)
 end
 
+-- NPC difficulty comes from the client's content difficulty
+-- (Enum.RelativeContentDifficulty), which accounts for level scaling. Each is
+-- mapped to the QuestDifficultyColors entry that colours it.
+local CONTENT_DIFFICULTY_KEYS = {
+	Trivial = 'trivial',
+	Easy = 'standard',
+	Fair = 'difficult',
+	Difficult = 'verydifficult',
+	Impossible = 'impossible',
+}
+
+-- Hand-tuned difficulty colours, by QuestDifficultyColors key, used as is.
+-- Softening turns Blizzard's red pink, so the hardest two share a redder one.
+local DIFFICULTY_OVERRIDES = {
+	impossible = { 0.86, 0.36, 0.33 },
+	verydifficult = { 0.86, 0.36, 0.33 },
+}
+
+local function SameColor(a, b)
+	return a == b or (type(a) == 'table' and a.r == b.r and a.g == b.g and a.b == b.b)
+end
+
+local function ContentDifficultyKey(unit)
+	local GetDifficulty = C_PlayerInfo and C_PlayerInfo.GetContentDifficultyCreatureForPlayer
+	local enum = Enum.RelativeContentDifficulty
+	if not GetDifficulty or not enum then
+		return
+	end
+	local value = GetDifficulty(unit)
+	if not Known(value) or value == nil then
+		return
+	end
+	for name, v in next, enum do
+		if v == value then
+			return CONTENT_DIFFICULTY_KEYS[name]
+		end
+	end
+end
+
+-- Fallback: the level gap, as GetCreatureDifficultyColor judges it. Level 0
+-- or below (??) counts as far above you.
+local function LevelDifficultyKey(unit)
+	local level = UnitEffectiveLevel(unit)
+	if not Known(level) or not QuestDifficultyColors then
+		return
+	end
+	local c = GetCreatureDifficultyColor(level > 0 and level or 999)
+	for key, blizzard in next, QuestDifficultyColors do
+		if SameColor(blizzard, c) then
+			return key
+		end
+	end
+end
+
+-- The unit's QuestDifficultyColors key: content difficulty, else the level
+-- gap when that's missing or hidden. nil if neither is known.
+function colors.DifficultyKey(unit)
+	return ContentDifficultyKey(unit) or LevelDifficultyKey(unit)
+end
+
+-- Difficulty colour as text markup, by QuestDifficultyColors key: an override,
+-- else Blizzard's colour softened. nil for an unknown key.
+function colors.DifficultyHex(key)
+	local override = DIFFICULTY_OVERRIDES[key]
+	if override then
+		return Hex(override[1], override[2], override[3])
+	end
+	local c = key and QuestDifficultyColors and QuestDifficultyColors[key]
+	if c then
+		return Hex(SoftDifficulty(c.r, c.g, c.b))
+	end
+end
+
 oUF.Tags.Methods['miniui:namecolor'] = function(unit)
 	local isPlayer = UnitIsPlayer(unit)
 	local isAI = UnitInPartyIsAI(unit)
@@ -140,12 +229,7 @@ oUF.Tags.Methods['miniui:namecolor'] = function(unit)
 		return colors.class[class]
 	end
 
-	local level = UnitEffectiveLevel(unit)
-	if not Known(level) then
-		return
-	end
-	local c = GetCreatureDifficultyColor((level > 0) and level or 999)
-	return Hex(SoftDifficulty(c.r, c.g, c.b))
+	return colors.DifficultyHex(colors.DifficultyKey(unit))
 end
 oUF.Tags.Events['miniui:namecolor'] = 'UNIT_NAME_UPDATE UNIT_FACTION UNIT_LEVEL PLAYER_LEVEL_UP'
 
@@ -158,15 +242,9 @@ local CLASSIFICATION = {
 	worldboss = 'b',
 }
 
--- Yellow (even-level) units: no colour markup, so the text keeps the power
--- text colour set by ApplyPowerColors and blends into the bar.
-local function IsEvenLevel(c)
-	local yellow = QuestDifficultyColors and QuestDifficultyColors.difficult
-	return yellow and (c == yellow or (c.r == yellow.r and c.g == yellow.g and c.b == yellow.b))
-end
-
--- '60', '60+', '61r+', '??b'. Level ?? (unknown, or far above you) gets the
--- hardest difficulty colour.
+-- '60', '60+', '61r+', '??b', coloured by difficulty (see DifficultyKey).
+-- Fair (yellow) units get no colour markup, so the text keeps the power text
+-- colour set by ApplyPowerColors and blends into the bar.
 oUF.Tags.Methods['miniui:level'] = function(unit)
 	local level = UnitEffectiveLevel(unit)
 	if not Known(level) then
@@ -183,10 +261,11 @@ oUF.Tags.Methods['miniui:level'] = function(unit)
 	end
 
 	local text = (level > 0 and level or '??') .. suffix
-	local c = GetCreatureDifficultyColor(level > 0 and level or 999)
-	if IsEvenLevel(c) then
+	local key = colors.DifficultyKey(unit)
+	local hex = key ~= 'difficult' and colors.DifficultyHex(key)
+	if not hex then
 		return text
 	end
-	return Hex(SoftDifficulty(c.r, c.g, c.b)) .. text .. '|r'
+	return hex .. text .. '|r'
 end
 oUF.Tags.Events['miniui:level'] = 'UNIT_LEVEL PLAYER_LEVEL_UP UNIT_CLASSIFICATION_CHANGED UNIT_FACTION'

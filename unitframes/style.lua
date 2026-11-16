@@ -130,16 +130,34 @@ local function PostUpdatePowerColor(element, unit, color, r, g, b)
 	end
 end
 
+-- Flat colours for hostile (1-3) and neutral (4) reactions; nil for friendly
+-- or unknown, which keep the health curve. A secret reaction counts as unknown.
+local function ReactionColors(unit)
+	local reaction = UnitReaction(unit, 'player')
+	if reaction == nil or (issecretvalue and issecretvalue(reaction)) then
+		return
+	elseif reaction <= 3 then
+		return ns.colors.hostile
+	elseif reaction == 4 then
+		return ns.colors.neutral
+	end
+end
+
 -- Replaces oUF's health colouring: the bar, its background and the health text
 -- all follow the unit's health percentage (see colors.lua). Runs after every
 -- health update, so the heal-prediction values it evaluates are current.
+-- Elements with colorReaction set (target, nameplates) use a flat colour for
+-- hostile and neutral units instead; oUF then also refreshes on UNIT_FACTION.
 local function UpdateHealthColor(self, event, unit)
 	if not unit or self.__unit ~= unit then return end
 	local element = self.Health
+	local flat = element.colorReaction and ReactionColors(unit)
 
 	if not UnitIsConnected(unit) or (not UnitPlayerControlled(unit) and UnitIsTapDenied(unit)) then
 		local inactive = ns.colors.inactive
 		ApplyHealthColors(element, inactive.bar, inactive.bg, inactive.text)
+	elseif flat then
+		ApplyHealthColors(element, flat.bar, flat.bg, flat.text)
 	else
 		local curves, values = ns.colors.health, element.values
 		ApplyHealthColors(element,
@@ -158,8 +176,8 @@ local function Layout(self)
 	-- so the health bar is exactly as tall as an action button.
 	local healthHeight = Snap(self, HEALTH_HEIGHT)
 	local powerHeight = Snap(self, POWER_HEIGHT)
-	-- As wide as action bar 1.
-	self:SetSize(Pixels(self, ns.layout.MainPixels(self)), healthHeight + powerHeight + 3 * pad)
+	-- As wide as action bar 1, or the player's aura columns if wider.
+	self:SetSize(Pixels(self, ns.layout.UnitFramePixels(self)), healthHeight + powerHeight + 3 * pad)
 
 	-- Backdrop fills the frame exactly; the bars sit inside it, padded by a
 	-- pixel, so the backdrop shows as a 1px outline and a 1px divider.
@@ -419,6 +437,7 @@ local function Style(self, unit)
 	self.Power.PostUpdateColor = PostUpdatePowerColor
 
 	self.Health.UpdateColor = UpdateHealthColor
+	self.Health.colorReaction = unit == 'target' -- flat hostile/neutral colours
 
 	self:Tag(self.NameText, ('[miniui:namecolor][miniui:name(%d)]'):format(party and 16 or 22))
 	self:Tag(self.Health.Text, '[miniui:health]')
@@ -429,6 +448,8 @@ local function Style(self, unit)
 
 	if unit == 'target' then
 		ns.auras.AttachTarget(self)
+	elseif unit == 'player' then
+		ns.auras.AttachPlayer(self)
 	end
 end
 

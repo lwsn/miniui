@@ -61,10 +61,23 @@ Blizzard_GamepadActionBars ("Camelot").
   repositioned (see `minimap/minimap.lua`).
 - **Checking media files.** Use `C_UIFileAsset.IsKnownFile(path)`.
   `SetFont`/`GetFont` probing gives false negatives in this client.
-- **Seconds formatter.** `C_StringUtil.CreateSecondsFormatter()` is opaque
-  userdata with a protected metatable. Call its methods blind, guarded by
-  existence checks. Aura timers render as "42 m", "12 s", "8.2". Unitless or
-  custom formats aren't possible.
+- **Aura containers.** Aura data (lookups, `UNIT_AURA` payloads) is fully
+  secret in combat, so aura-driven display goes through `AuraContainer`
+  (`CustomAuraContainerTemplate`): the client filters and shows buttons, Lua
+  only builds them. Rules, learned the hard way (see `auras/procs.lua`):
+  build containers and groups at login or out of combat; use `AddAuraGroup`
+  with `candidateFilters.includeSpellIDs` to watch one spell (`AddAuraSlot`
+  showed nothing); size buttons through the group's `layout.elementWidth` /
+  `elementHeight`; no script handlers on buttons (the client then refuses
+  to show them); everything made in `initializeFrame` is forbidden to addon
+  code afterwards, so build it complete and anchor it to frames you own;
+  animate with `button:AddAuraShownAnimation(group)`. The AuraTimers addon
+  (`../auratimers`) is a working reference.
+- **Timer text formatters.** `C_StringUtil.CreateSecondsFormatter()` is opaque
+  and always puts a space before the unit ("42 m"). For custom text use
+  `C_StringUtil.CreateNumericRuleFormatter()` with `AddBreakpoint({threshold,
+  format, step, rounding, components = {{div, mod, step, rounding}}})`, as in
+  `auras/button.lua` (AuraTimers and Plater do the same).
 
 ## Workflow
 
