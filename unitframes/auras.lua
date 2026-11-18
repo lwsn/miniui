@@ -21,6 +21,7 @@ local function GroupOptions(self, options)
 	options.height = ns.Snap(self, ns.auras.HEIGHT)
 	options.mirrored = self.mirrored -- bars drain the same way as the frame's
 	options.layout = { elementSpacing = spacing, lineSpacing = spacing }
+	options.overlap = true -- trims the shared edge from hit areas (auras/button.lua)
 	options.sortMethod = AuraContainerSortMethod.ExpirationOnly
 	options.sortDirection = AuraContainerSortDirection.Reverse -- longest first, shortest last (top, inner)
 	options.CreateButton = ns.auras.InitButton

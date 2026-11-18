@@ -67,7 +67,7 @@ end
 
 -- Button initializer, shared by unit frame and standalone containers.
 -- Signature matches oUF's CreateButton override: (element, options, button).
--- Options used: width, height, mirrored, edgeColor, dispelBorder,
+-- Options used: width, height, mirrored, overlap, edgeColor, dispelBorder,
 -- cancelButton, disableMouse.
 function ns.auras.InitButton(element, options, button)
 	local width, height = options.width, options.height
@@ -76,6 +76,16 @@ function ns.auras.InitButton(element, options, button)
 	button:SetTooltipAnchorPoint('ANCHOR_CURSOR', 0, 0)
 
 	local px = ns.Pixels(button, 1)
+
+	-- Neighbours overlap by their 1px edge (options.overlap). Without this,
+	-- that stripe is in both buttons' hit areas and either may get the mouse.
+	-- Each button gives up half a pixel on every side, so neighbours' hit
+	-- areas meet in the middle of the shared stripe: no overlap, and no gap
+	-- for the mouse to fall into between them (which hides the tooltip).
+	if options.overlap then
+		local half = px / 2
+		button:SetHitRectInsets(half, half, half, half)
+	end
 
 	-- The plate shows only as the 1px black edge around everything else.
 	local plate = button:CreateTexture(nil, 'BACKGROUND')

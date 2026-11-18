@@ -71,7 +71,9 @@ Blizzard_GamepadActionBars ("Camelot").
   `elementHeight`; no script handlers on buttons (the client then refuses
   to show them); everything made in `initializeFrame` is forbidden to addon
   code afterwards, so build it complete and anchor it to frames you own;
-  animate with `button:AddAuraShownAnimation(group)`. The AuraTimers addon
+  animate with `button:AddAuraShownAnimation(group)`. Buttons that overlap
+  by their 1px edge need half-pixel hit rect insets on every side, or the
+  tooltip drops when the mouse crosses between them. The AuraTimers addon
   (`../auratimers`) is a working reference.
 - **Timer text formatters.** `C_StringUtil.CreateSecondsFormatter()` is opaque
   and always puts a space before the unit ("42 m"). For custom text use

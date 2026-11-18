@@ -5,7 +5,7 @@
 ## AllowLoadGameType: standard, camelot
 ## OptionalDeps: Clique
 ## X-oUF: miniui_oUF
-## SavedVariablesPerCharacter: miniuiXPDB, miniuiKillsDB, miniuiBasiliskDB
+## SavedVariablesPerCharacter: miniuiXPDB, miniuiKillsDB, miniuiBasiliskDB, miniuiChatDB
 
 embeds\oUF\oUF.xml
 
@@ -25,6 +25,7 @@ bags\bags.lua
 unitframes\unitframes.xml
 auras\player.lua
 auras\procs.lua
+chat\chat.lua
 info\fps.lua
 info\kills.lua
 utility\automation.lua

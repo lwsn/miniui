@@ -86,6 +86,7 @@ BARS[1].frame = bar
 for i = 2, #BARS do
 	BARS[i].frame = CreateFrame('Frame', 'miniuiActionBar' .. i, UIParent)
 end
+bar.bar2 = BARS[2].frame -- chat/chat.lua sits left of it
 
 local buttons = {} -- every button, all bars
 

@@ -18,6 +18,11 @@ local UNUSABLE = { 0.45, 0.45, 0.45 } -- as on the action bars, with desaturatio
 local BLIZZARD = { 'StanceBar', 'StanceBarFrame', 'ShapeshiftBarFrame' }
 
 local holder = CreateFrame('Frame', 'miniuiStanceBar', UIParent)
+ns.stancebar = holder
+holder.count = 0 -- forms shown; 0 leaves the bar empty (but still sized)
+-- Functions run after every setup, for frames placed around the bar (see
+-- chat/chat.lua).
+holder.onLayout = {}
 
 local hidden = CreateFrame('Frame')
 hidden:Hide()
@@ -118,6 +123,11 @@ local function Setup()
 	end
 
 	UpdateAll()
+
+	holder.count = count
+	for _, fn in ipairs(holder.onLayout) do
+		fn()
+	end
 end
 
 local pending = false
