@@ -282,6 +282,35 @@ local function StyleRowButtons()
 	end
 end
 
+-- Windows are clamped to the screen with insets reaching past their edges
+-- (room for the tab and buttons). Ours sits near the bottom of the screen,
+-- so Blizzard's insets, which it puts back whenever it docks a window or
+-- redraws its background, push the text up off the background until a
+-- reload. Kept at zero (as Prat does).
+local unclampPending = {}
+
+local function Unclamp(frame)
+	local clamping = false
+	local function Zero()
+		if InCombatLockdown() then
+			unclampPending[frame] = true
+			return
+		end
+		clamping = true
+		frame:SetClampRectInsets(0, 0, 0, 0)
+		clamping = false
+		if not placing then
+			Pin() -- re-anchoring drops any clamp offset already applied
+		end
+	end
+	hooksecurefunc(frame, 'SetClampRectInsets', function()
+		if not clamping then
+			Zero()
+		end
+	end)
+	Zero()
+end
+
 local function Style(index)
 	local name = 'ChatFrame' .. index
 	local frame = _G[name]
@@ -314,6 +343,7 @@ local function Style(index)
 	end
 
 	GlowOnNewLines(frame)
+	Unclamp(frame)
 
 	-- Shift+wheel, either way, jumps to the latest line. Blizzard's handler
 	-- runs first (shift+up goes to the top); this lands at the bottom after.
@@ -432,6 +462,7 @@ table.insert(ns.stancebar.onLayout, Place)
 
 holder:RegisterEvent('PLAYER_LOGIN')
 holder:RegisterEvent('PLAYER_LOGOUT')
+holder:RegisterEvent('PLAYER_REGEN_ENABLED')
 holder:RegisterEvent('ADDON_LOADED')
 holder:SetScript('OnEvent', function(_, event, arg)
 	if event == 'ADDON_LOADED' then
@@ -442,9 +473,17 @@ holder:SetScript('OnEvent', function(_, event, arg)
 		end
 		return
 	end
+	if event == 'PLAYER_REGEN_ENABLED' then
+		-- Insets Blizzard reset during combat.
+		for frame in pairs(unclampPending) do
+			unclampPending[frame] = nil
+			frame:SetClampRectInsets(0, 0, 0, 0)
+			Pin()
+		end
+		return
+	end
 	if event == 'PLAYER_LOGIN' then
 		SetCVar('showTimestamps', TIMESTAMP)
-		ChatFrame1:SetClampRectInsets(0, 0, 0, 0)
 		StyleRowButtons() -- before Style parks the button frame they live in
 		for i = 1, NUM_WINDOWS do
 			Style(i)
