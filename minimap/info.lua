@@ -2,10 +2,13 @@ local _, ns = ...
 
 -- Text over the minimap: zone name top centre, clock (HH:MM, local time)
 -- bottom left, player coordinates bottom right. Outlined, since it's drawn
--- over the map. Same size as the tracking bar text.
+-- over the map. Same size as the tracking bar text. A small envelope icon in
+-- the top right corner shows while there's unread mail.
 
 local TEXT_SIZE = 12 -- matches the XP bar
 local INSET = 4 -- UI units from the map's edges
+local MAIL_PIXELS = 18 -- mail icon size, 1px border included
+local MAIL_ICON = [[Interface\Icons\INV_Letter_15]]
 local COORDS_INTERVAL = 0.2 -- seconds between coordinate updates
 local CLOCK_INTERVAL = 1
 
@@ -40,6 +43,49 @@ clock:SetPoint('BOTTOMLEFT', INSET, INSET)
 
 local coords = Text()
 coords:SetPoint('BOTTOMRIGHT', -INSET, INSET)
+
+-- Mail: icon in a 1px black border, 1px in from the map's top right corner.
+-- Hover lists the latest senders, like Blizzard's mail icon.
+local mail = CreateFrame('Frame', nil, overlay)
+mail:Hide()
+mail:EnableMouse(true)
+
+local mailBorder = mail:CreateTexture(nil, 'BACKGROUND')
+mailBorder:SetAllPoints()
+mailBorder:SetColorTexture(0, 0, 0, 1)
+
+local mailIcon = mail:CreateTexture(nil, 'ARTWORK')
+mailIcon:SetTexture(MAIL_ICON)
+mailIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
+local function PlaceMail()
+	local px = ns.Pixels(mail, 1)
+	mail:SetSize(MAIL_PIXELS * px, MAIL_PIXELS * px)
+	mail:ClearAllPoints()
+	mail:SetPoint('TOPRIGHT', overlay, 'TOPRIGHT', -px, -px)
+	mailIcon:ClearAllPoints()
+	mailIcon:SetPoint('TOPLEFT', px, -px)
+	mailIcon:SetPoint('BOTTOMRIGHT', -px, px)
+end
+
+local function UpdateMail()
+	mail:SetShown(HasNewMail())
+end
+
+mail:SetScript('OnEnter', function(self)
+	GameTooltip:SetOwner(self, 'ANCHOR_BOTTOMLEFT')
+	local senders = { GetLatestThreeSenders() }
+	if #senders > 0 then
+		GameTooltip:SetText(HAVE_MAIL_FROM or 'Unread mail from:')
+		for _, sender in ipairs(senders) do
+			GameTooltip:AddLine(sender, 1, 1, 1)
+		end
+	else
+		GameTooltip:SetText(HAVE_MAIL or 'You have unread mail')
+	end
+	GameTooltip:Show()
+end)
+mail:SetScript('OnLeave', GameTooltip_Hide)
 
 local function UpdateZone()
 	zone:SetText(GetMinimapZoneText() or '')
@@ -84,8 +130,17 @@ overlay:RegisterEvent('PLAYER_ENTERING_WORLD')
 overlay:RegisterEvent('ZONE_CHANGED')
 overlay:RegisterEvent('ZONE_CHANGED_INDOORS')
 overlay:RegisterEvent('ZONE_CHANGED_NEW_AREA')
-overlay:SetScript('OnEvent', function()
+overlay:RegisterEvent('UPDATE_PENDING_MAIL')
+overlay:RegisterEvent('UI_SCALE_CHANGED')
+overlay:RegisterEvent('DISPLAY_SIZE_CHANGED')
+overlay:SetScript('OnEvent', function(_, event)
+	if event == 'UPDATE_PENDING_MAIL' then
+		UpdateMail()
+		return
+	end
 	-- The map is re-parented into the holder at login; stay above it.
 	overlay:SetFrameLevel(Minimap:GetFrameLevel() + 5)
+	PlaceMail()
+	UpdateMail()
 	UpdateZone()
 end)
