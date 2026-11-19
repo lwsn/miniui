@@ -13,7 +13,8 @@ Blizzard_GamepadActionBars ("Camelot").
   (`ns.media.font.regular` / `.semibold`). Create text with `ns.CreateText`.
   Backgrounds are always dark, so text has no shadow or outline. The exception
   is text drawn on icons or the map (aura timers and counts, action button
-  text, minimap text), which uses `'OUTLINE'`, never a drop shadow. Don't put
+  text, minimap text, chat tabs and the chat's tab-row buttons, which sit on
+  the game world), which uses `'OUTLINE'`, never a drop shadow. Don't put
   text on bright fills.
 - **Muted colours.** Bars use a dark fill. The background is the fill times
   `ns.colors.BG_SHADE`, and text is the fill mixed toward white by
@@ -75,6 +76,17 @@ Blizzard_GamepadActionBars ("Camelot").
   by their 1px edge need half-pixel hit rect insets on every side, or the
   tooltip drops when the mouse crosses between them. The AuraTimers addon
   (`../auratimers`) is a working reference.
+- **Chat lines.** Don't override `CHAT_*_GET` strings or replace a chat
+  frame's `AddMessage`: either taints Blizzard's chat handler, which then
+  fails on secret values. To change how lines look, post-hook `AddMessage`
+  and rewrite the newest history entry (`frame.historyBuffer:GetEntryAtIndex(1)`,
+  index 1 is the newest; count with `GetNumElements()`), skipping secret
+  messages. The window draws it on its next update (see `chat/format.lua`).
+  To react to new lines while scrolled up, hook the `Flash` of the
+  shrunk-out-of-sight `ScrollToBottomButton` (`chat/chat.lua`).
+- **Errors at logout are invisible.** Code run on `PLAYER_LOGOUT` (saving
+  SavedVariables) should `pcall` and store the error in the saved table, so
+  `/dump` can show it.
 - **Timer text formatters.** `C_StringUtil.CreateSecondsFormatter()` is opaque
   and always puts a space before the unit ("42 m"). For custom text use
   `C_StringUtil.CreateNumericRuleFormatter()` with `AddBreakpoint({threshold,
@@ -90,3 +102,6 @@ Blizzard_GamepadActionBars ("Camelot").
   the real `Layout` and colour functions).
 - Load order lives in `miniui.toc`. Modules share state through `ns` (for
   example `ns.actionbar`, `ns.minimap`, `ns.layout`, `ns.colors`).
+  Frames that follow a protected bar without anchoring to it register in
+  its `onLayout` list (`ns.actionbar.onLayout`, `ns.stancebar.onLayout`) and
+  position from its edges.

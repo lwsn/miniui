@@ -26,6 +26,7 @@ unitframes\unitframes.xml
 auras\player.lua
 auras\procs.lua
 chat\chat.lua
+chat\format.lua
 info\fps.lua
 info\kills.lua
 utility\automation.lua
